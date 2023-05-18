@@ -1,23 +1,49 @@
+import java.math.BigInteger;
+
 public class RabbitCipher {
     String key; // String key = "1111111111111111111111111110110111111111111111111111111111011011111111111111111111111111101101111111111111111111111111110110";
     String IV;
     String[] subkeys = new String[8];
     String[] subIVEven = new String[2];
     String[] subIVOdd = new String[4];
-    String[][] counter = new String[7][4];
-    int[][] states = new int[7][4];
-    private final int[] A = new int[]
-            {
-                    0x4D34D34D, 0xD34D34D3, 0x34D34D34, 0x4D34D34D,
-                    0xD34D34D3, 0x34D34D34, 0x4D34D34D, 0xD34D34D3
-            };
+    String[][] counters = new String[7][4];
+    String[][] states = new String[7][4];
+    private final BigInteger[] a = {
+            new BigInteger("4D34D34D", 16), new BigInteger("D34D34D3", 16),
+            new BigInteger("34D34D34", 16), new BigInteger("4D34D34D", 16),
+            new BigInteger("D34D34D3", 16), new BigInteger("34D34D34", 16),
+            new BigInteger("4D34D34D", 16), new BigInteger("D34D34D3", 16)
+    };
+
+    private static final int[] f = new int[8];
+    private static final BigInteger MOD = new BigInteger("2").pow(32);
+    RabbitCipher(String key, String IV){
+        this.key = key;
+        this.IV = IV;
+    }
 
     //concatenation of two bit sequences
     public static String concatenateBitSequences(String sequence1, String sequence2) {
         return sequence1 + sequence2;
     }
 
+    private String xorStrings(String s1, String s2) {
+        if (s1.length() != s2.length()) {
+            throw new IllegalArgumentException("Strings must be the same length");
+        }
 
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < s1.length(); i++) {
+            char c1 = s1.charAt(i);
+            char c2 = s2.charAt(i);
+            if (c1 != '0' && c1 != '1' || c2 != '0' && c2 != '1') {
+                throw new IllegalArgumentException("Strings must have '0' or '1'");
+            }
+            result.append(c1 == c2 ? '0' : '1');
+        }
+
+        return result.toString();
+    }
     //creating subkeys
     //TODO: (@ksiepiet) Create method for subkeys
     protected void setSubKeys() {
@@ -25,16 +51,11 @@ public class RabbitCipher {
 
     //TODO: (@ksiepiet) Create method for x_j,0[8]
     protected void createStateVariablesJZero() {
-        int[][] states = new int[7][4];
-        //....
-        this.states = states;
     }
 
     //TODO: (@ksiepiet) Create method for all states x[7][4]
     protected void createAllStates() {
-        int[][] states = new int[7][4];
-        //....
-        this.states = states;
+
     }
 
 
@@ -52,15 +73,15 @@ public class RabbitCipher {
 
     //TODO: (@akuhach) Create method for c_j,0[8]
     protected void createCounterVariablesJZero() {
-        for (int i = 0; i < counter.length; i++) {
+        for (int i = 0; i < counters.length; i++) {
             if (i % 2 == 0) {
                 int j1 = (i + 4) % 8;
                 int j2 = (i + 5) % 8;
-                counter[i][0] =concatenateBitSequences(subkeys[j1], subkeys[j2]);
+                counters[i][0] =concatenateBitSequences(subkeys[j1], subkeys[j2]);
                 //counter[i][0] =;
             } else {
                 int j = (i + 1) % 8;
-                counter[i][0] =concatenateBitSequences(subkeys[i], subkeys[j]);
+                counters[i][0] =concatenateBitSequences(subkeys[i], subkeys[j]);
                 // counter[i][0] =;
             }
         }
@@ -70,23 +91,25 @@ public class RabbitCipher {
 
     //TODO: (@akuhach) Create method for full counter system c_j,i
     protected void createCounterSystem() {
-
-        for (int i = 0; i < counter.length; i++) {
-            for (int j = 0; j < counter[i].length; j++) {
-                int m = j + 1;
-                if (m + 1 == counter[i].length) {
-                    m = 0;
+        for (int i = 0; i < counters.length; i++) {
+            for (int j = 0; j < counters[i].length; j++) {
+                        BigInteger counter = new BigInteger(counters[j][i], 2);
+                        BigInteger newValue = counter.add(a[j]).add(BigInteger.valueOf(f[(j+7)%8]));
+                counters[j][i+1] = String.format("%32s", newValue.mod(MOD).toString(2)).replace(' ', '0');
+                        f[j] = newValue.compareTo(MOD) >= 0 ? 1 : 0;
+                    }
                 }
-                //counter[i][m] =c[i][m] + A[i] + f[7][i] mod 32;
-            }
+                // Display counter values
+                for (int i = 0; i < 7; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        System.out.print(counters[i][j] + " ");
+                    }
+                    System.out.println();
+                }
         }
+
         //....
 
-    }
-
-     private void createF(){
-
-     }
     //TODO: (@akuhach) Create method for IV setup scheme
     protected void IVSetupScheme() {
         //....
@@ -95,7 +118,15 @@ public class RabbitCipher {
 
     //TODO: (@akuhach) Create method for modifications
     protected void modificationOfTheSetupScheme() {
-        //....
+        remakeOfCounterVariables();
+        createCounterSystem();
+    }
+
+    private void remakeOfCounterVariables() {
+        for(int i = 0; i < counters.length; i++){
+            int j = (i+4) % 8;
+            counters[i][4] = xorStrings(counters[i][4], states[j][4]);
+        }
     }
 
     //TODO: Create extraction function
@@ -110,6 +141,10 @@ public class RabbitCipher {
 
     //TODO: Create decryption function
     protected void decryptionFunction() {
+
+    }
+
+    protected void run(){
 
     }
 }
